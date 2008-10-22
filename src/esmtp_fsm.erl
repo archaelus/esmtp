@@ -179,7 +179,7 @@ sendemail(Fsm,From,To,Message) ->
     case mail_from(Fsm,From) of
 	{ok, _Resp}         -> sendemail(Fsm,To,Message);
 	{mfrom_error, Resp} -> 
-	    io:format("mfrom_error ~p~n",[Resp]),
+	    %io:format("mfrom_error ~p~n",[Resp]),
 	    rset(Fsm);
 	Resp                -> Resp
     end.
@@ -188,7 +188,7 @@ sendemail(Fsm,To,Message) ->
 	case rcpt_to(Fsm,To) of
 	    {ok, _Resp}        -> sendemail(Fsm,Message);
 	    {rcpt_error, Resp} -> 
-		io:format("rcpt_error ~p~n",[Resp]),
+		%io:format("rcpt_error ~p~n",[Resp]),
 		rset(Fsm);
 	    Resp               -> Resp
 	end.
@@ -197,7 +197,7 @@ sendemail(Fsm,Message) ->
 	case message(Fsm,Message) of
 	    {ok, _Resp}        -> ok;
 	    {data_error, Resp} -> 
-		io:format("data_error ~p~n",[Resp]),
+		%io:format("data_error ~p~n",[Resp]),
 		rset(Fsm);
 	    Resp               -> Resp
 	end.
@@ -287,10 +287,10 @@ features(Fsm) -> gen_fsm:sync_send_event(Fsm, features).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init([Server,Port]) ->
-    io:format("connecting to ~p~n",[Server]),
+    %io:format("connecting to ~p~n",[Server]),
     Args = [list,{packet,0}],
     {ok,Socket} = gen_tcp:connect(Server,Port,Args),
-    io:format("socket open~n"),
+    %io:format("socket open~n"),
     case get_response(Socket) of
 	{"220", _Resp} -> 
 	    {ok, smtp_start, #info{socket=Socket}};
