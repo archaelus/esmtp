@@ -10,6 +10,7 @@
               ,esmtp_sup]}
   ,{mod, {esmtp_app, []}}
   ,{env, [{smarthost, {"localhost", 25}}
+          ,{default_ehlo, "localhost"}
           ,{default_from, "Erlang/OTP <erlang@localhost>"}]}
   ,{registered, [esmtp_sup]}
  ]}.

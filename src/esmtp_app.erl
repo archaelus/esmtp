@@ -47,10 +47,10 @@ stop(_State) ->
 %% @doc Retrieve the configuration value for key Item from the tbld
 %% OTP application environment.
 config(Item) ->
-    case application:get_env(tbld, Item) of
+    case application:get_env(esmtp, Item) of
         {ok, Term} -> Term;
         undefined ->
-            error_logger:error_msg("tbld not correctly configured: missing ~p",
+            error_logger:error_msg("esmtp not correctly configured: missing ~p",
                                    [Item]),
-            exit(tbld_misconfigured)
+            exit(esmtp_misconfigured)
     end.
