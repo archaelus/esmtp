@@ -52,7 +52,7 @@
 -define(RESPONSE_TIMEOUT, timer:minutes(1)).
 
 %% Client Functions
--export([start/0, start/1, start/2, start_link/2,
+-export([start/0, start/1, start/3, start_link/3,
          ehlo/1, ehlo/2, helo/1,
 	 helo/2,close/1,noop/1,rset/1, mail_from/2, 
 	 rcpt_to/2,message/2,sendemail/4,features/1,
@@ -74,94 +74,18 @@
 -define(AUTHLIST, [ "CRAM-MD5", "PLAIN", "LOGIN"]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% internal functions
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% works out fully qualified domain name for host
-getFQDN()->
-    {ok, Hostname} = inet:gethostname(),
-    {ok, HostEnt} = inet:gethostbyname(Hostname),
-    {hostent,Fqdn,_,inet,_,_IP_addrs} = HostEnt,
-    Fqdn.
-
-%% encodes user & password as required by PLAIN AUTH method
-plain_encode(User, Pwd) ->
-    Plain_str = lists:concat([User,"\0",User,"\0",Pwd]),
-    base64:encode(Plain_str).
-
-%% extracts & decodes server challenge from server response
-%% used in MD5 AUTH
-decode_challenge(Resp) ->
-    Str = string:substr(Resp,5,string:len(Resp)-6),
-    base64:decode(string:strip(Str)).
-
-%% returns a hex digest of a binary value
-hexdigest(Binary) ->
-    List = binary_to_list(Binary),
-    Hexlist = lists:map(fun hexit/1,List),
-    string:to_lower(lists:concat(Hexlist)).
-
-%% returns hex value of integer (always) as 2 chr string
-hexit(Int) ->
-    Hex = httpd_util:integer_to_hexlist(Int),
-    case string:len(Hex) of
-	1 -> "0" ++ Hex;
-	_ -> Hex
-    end.
-    
-%% generates MD5 mac and returns as hex string
-md5_hmac(Challenge,Pwd) ->
-    crypto:start(),
-    Md5_bin = crypto:md5_mac(Pwd,Challenge),
-    crypto:stop(),
-    hexdigest(Md5_bin).
-
-%% selects the preferred AUTH method supported
-pref_auth(Supports)->
-    pref_auth(?AUTHLIST, Supports).	
-pref_auth([H|T], Supports) ->
-    case lists:member(H, Supports) of
-	true  -> {ok, H};
-	false -> pref_auth(T,Supports)
-    end;
-pref_auth([], _Supports) ->
-    {error, none}.
-
-%% checks Features list if AUTH is supported and returns 
-%% a list of methods
-does_auth(["AUTH"++Supp|_]) -> string:tokens(Supp, " ");
-does_auth([_Other|Tail])     -> does_auth(Tail);
-does_auth([])                -> no.
-
-%% listens for smtp response & parses to get code
-get_response(Socket) ->
-    get_response(Socket, ?RESPONSE_TIMEOUT).
-
-get_response(Socket, Timeout) ->
-    receive
-	{tcp, Socket, Resp} ->
-	    {lists:sublist(Resp, 3), Resp}; 
-	{tcp_error, Socket, Reason} ->
-	    {conn_error, Reason};
-	{tcp_closed,Socket} ->
-	    conn_closed
-    after Timeout ->
-            {conn_error, timeout}
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% interface
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% use start/ to connect to the SMTP server & port
 %% default port (if undefined) is 25
 %% default host (if undefined) is localhost
-start()          -> start("localhost", 25).
-start(Host)      -> start(Host, 25).
-start(Host,Port) -> gen_fsm:start(?MODULE,[Host,Port],[]).
+start()          -> start("localhost", 25, false).
+start(Host)      -> start(Host, 25, false).
+start(Host,Port,SSL) -> gen_fsm:start(?MODULE,[Host,Port,SSL],[]).
 
-start_link(Host, Port) ->
-    gen_fsm:start_link(?MODULE, [Host, Port], []).
+start_link(Host, Port, SSL) ->
+    gen_fsm:start_link(?MODULE, [Host, Port, SSL], []).
 
 %% use helo/ when you want to use SMTP
 %% if the client name is undefined then the FQDN is used
@@ -178,7 +102,7 @@ ehlo(Fsm,Name) -> gen_fsm:sync_send_event(Fsm,{ehlo,Name}).
 sendemail(Fsm,From,To,Message) ->
     case mail_from(Fsm,From) of
 	{ok, _Resp}         -> sendemail(Fsm,To,Message);
-	{mfrom_error, Resp} -> 
+	{mfrom_error, _Resp} -> 
 	    %io:format("mfrom_error ~p~n",[Resp]),
 	    rset(Fsm);
 	Resp                -> Resp
@@ -187,7 +111,7 @@ sendemail(Fsm,From,To,Message) ->
 sendemail(Fsm,To,Message) ->
 	case rcpt_to(Fsm,To) of
 	    {ok, _Resp}        -> sendemail(Fsm,Message);
-	    {rcpt_error, Resp} -> 
+	    {rcpt_error, _Resp} -> 
 		%io:format("rcpt_error ~p~n",[Resp]),
 		rset(Fsm);
 	    Resp               -> Resp
@@ -196,7 +120,7 @@ sendemail(Fsm,To,Message) ->
 sendemail(Fsm,Message) ->
 	case message(Fsm,Message) of
 	    {ok, _Resp}        -> ok;
-	    {data_error, Resp} -> 
+	    {data_error, _Resp} -> 
 		%io:format("data_error ~p~n",[Resp]),
 		rset(Fsm);
 	    Resp               -> Resp
@@ -286,10 +210,18 @@ features(Fsm) -> gen_fsm:sync_send_event(Fsm, features).
 %% callbacks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Server,Port]) ->
+init([Server,Port,_SSL=true]) ->
     %io:format("connecting to ~p~n",[Server]),
-    Args = [list,{packet,0}],
-    {ok,Socket} = gen_tcp:connect(Server,Port,Args),
+    {ok,S} = ssl:connect(Server, Port, [list,{packet,0}], ?RESPONSE_TIMEOUT),
+    Socket = {ssl, S},
+    init({sock, Socket});
+init([Server,Port,_SSL=false]) ->
+    %io:format("connecting to ~p~n",[Server]),
+    {ok,S} = gen_tcp:connect(Server, Port, [list,{packet,0}], ?RESPONSE_TIMEOUT),
+    Socket = {gen_tcp, S},
+    init({sock, Socket});
+
+init({sock, Socket}) ->
     %io:format("socket open~n"),
     case get_response(Socket) of
 	{"220", _Resp} -> 
@@ -302,7 +234,7 @@ init([Server,Port]) ->
 %% helo or ehlo
 smtp_start({helo, Name}, _Pid, Info)->
     Msg = ["helo ", Name, "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply,{ok,Resp},smtp_conn,Info};
@@ -313,7 +245,7 @@ smtp_start({helo, Name}, _Pid, Info)->
     end;
 smtp_start({ehlo, Name}, _Pid, Info) ->
     Msg = ["ehlo ", Name, "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    Tokens = string:tokens(Resp, "\r\n"),
@@ -329,7 +261,7 @@ smtp_start({ehlo, Name}, _Pid, Info) ->
 %% state=smtp_conn - we can now send emails, login etc.
 %%
 smtp_conn(noop, _Pid, Info) ->
-    ok = gen_tcp:send(Info#info.socket, "noop\r\n"),
+    ok = socket_send(Info#info.socket, "noop\r\n"),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -340,7 +272,7 @@ smtp_conn(noop, _Pid, Info) ->
     end;
 smtp_conn({mfrom, Address}, _Pid, Info) ->
     Msg = ["mail from:", Address, "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -351,7 +283,7 @@ smtp_conn({mfrom, Address}, _Pid, Info) ->
     end;
 smtp_conn({rcpt_to, Address}, _Pid, Info) ->
     Msg = ["rcpt to:", Address, "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -361,7 +293,7 @@ smtp_conn({rcpt_to, Address}, _Pid, Info) ->
 	    {stop, conn_error, {conn_error, Error}, []}
     end;
 smtp_conn(data, _Pid, Info) ->
-    ok = gen_tcp:send(Info#info.socket, "Data\r\n"),
+    ok = socket_send(Info#info.socket, "Data\r\n"),
     case get_response(Info#info.socket) of
 	{"354", Resp} -> 
 	    {reply, {ok, Resp}, smtp_data, Info};
@@ -372,7 +304,7 @@ smtp_conn(data, _Pid, Info) ->
     end;
 smtp_conn({plain_login,User,Pwd}, _Pid, Info) ->
     Msg =  ["AUTH PLAIN ", plain_encode(User,Pwd), "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"235", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -384,7 +316,7 @@ smtp_conn({plain_login,User,Pwd}, _Pid, Info) ->
 smtp_conn({login_login,User}, _Pid, Info) ->
     B64Usr =  base64:encode(User),
     Msg = ["AUTH LOGIN ", B64Usr, "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"334", Resp} -> 
 	    {reply, {ok, Resp}, smtp_login, Info};
@@ -396,7 +328,7 @@ smtp_conn({login_login,User}, _Pid, Info) ->
 smtp_conn(features, _Pid, Info) ->
     {reply, {ok,Info#info.features}, smtp_conn, Info};
 smtp_conn(md5_login, _Pid, Info) ->
-    ok = gen_tcp:send(Info#info.socket,"AUTH CRAM-MD5\r\n"),
+    ok = socket_send(Info#info.socket,"AUTH CRAM-MD5\r\n"),
     case get_response(Info#info.socket) of
 	{"334", Resp} -> 
 	    {reply, {ok, Resp}, smtp_md5, Info};
@@ -404,12 +336,17 @@ smtp_conn(md5_login, _Pid, Info) ->
 	    {reply, {auth_error, Resp}, smtp_conn, Info};
 	Error -> 
 	    {stop, conn_error, {conn_error, Error}, []}
-    end.
+    end;
+smtp_conn(Unknown, _From, Info) ->
+    {stop,
+     {unknown_cmd, Unknown},
+     {error, {unknown_cmd, Unknown}},
+     Info}.
 
 %% state used in md5 authentication
 smtp_md5({md5_send, User, Md5_hmac}, _Pid, Info) ->
     Md5Usr = base64:encode(User++" "++Md5_hmac),
-    ok = gen_tcp:send(Info#info.socket, [Md5Usr,"\r\n"]),
+    ok = socket_send(Info#info.socket, [Md5Usr,"\r\n"]),
     case get_response(Info#info.socket) of
 	{"235", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -423,7 +360,7 @@ smtp_md5({md5_send, User, Md5_hmac}, _Pid, Info) ->
 %% but before the message has been sent
 smtp_data({msg,Message}, _Pid, Info) ->
     Msg = [Message, "\r\n.\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -437,7 +374,7 @@ smtp_data({msg,Message}, _Pid, Info) ->
 %% but before the password has been sent.
 smtp_login({login_pass,Pwd}, _Pid, Info) ->
     Msg = [base64:encode(Pwd), "\r\n"],
-    ok = gen_tcp:send(Info#info.socket, Msg),
+    ok = socket_send(Info#info.socket, Msg),
     case get_response(Info#info.socket) of
 	{"235", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -450,7 +387,7 @@ smtp_login({login_pass,Pwd}, _Pid, Info) ->
 %% non-specific callbacks
 
 handle_sync_event(rset, _Pid, _State, Info) ->
-    ok = gen_tcp:send(Info#info.socket, "rset\r\n"),
+    ok = socket_send(Info#info.socket, "rset\r\n"),
     case get_response(Info#info.socket) of
 	{"250", Resp} -> 
 	    {reply, {ok, Resp}, smtp_conn, Info};
@@ -461,7 +398,7 @@ handle_sync_event(rset, _Pid, _State, Info) ->
     end.
 
 handle_event(close, _State, Info) ->
-    ok = gen_tcp:send(Info#info.socket, "quit\r\n"),
+    ok = socket_send(Info#info.socket, "quit\r\n"),
     {stop, normal, Info}.
 
 terminate(normal, _StateName, _StateData)->
@@ -474,3 +411,93 @@ handle_info(_Info, StateName, StateData) ->
 
 code_change(_OldVsn, StateName, StateData, _Extra) ->
     {ok, StateName, StateData}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% internal functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% works out fully qualified domain name for host
+getFQDN()->
+    {ok, Hostname} = inet:gethostname(),
+    {ok, HostEnt} = inet:gethostbyname(Hostname),
+    {hostent,Fqdn,_,inet,_,_IP_addrs} = HostEnt,
+    Fqdn.
+
+%% encodes user & password as required by PLAIN AUTH method
+plain_encode(User, Pwd) ->
+    Plain_str = lists:concat([User,"\0",User,"\0",Pwd]),
+    base64:encode(Plain_str).
+
+%% extracts & decodes server challenge from server response
+%% used in MD5 AUTH
+decode_challenge(Resp) ->
+    Str = string:substr(Resp,5,string:len(Resp)-6),
+    base64:decode(string:strip(Str)).
+
+%% returns a hex digest of a binary value
+hexdigest(Binary) ->
+    List = binary_to_list(Binary),
+    Hexlist = lists:map(fun hexit/1,List),
+    string:to_lower(lists:concat(Hexlist)).
+
+%% returns hex value of integer (always) as 2 chr string
+hexit(Int) ->
+    Hex = httpd_util:integer_to_hexlist(Int),
+    case string:len(Hex) of
+	1 -> "0" ++ Hex;
+	_ -> Hex
+    end.
+    
+%% generates MD5 mac and returns as hex string
+md5_hmac(Challenge,Pwd) ->
+    Md5_bin = crypto:md5_mac(Pwd,Challenge),
+    hexdigest(Md5_bin).
+
+%% selects the preferred AUTH method supported
+pref_auth(Supports)->
+    pref_auth(?AUTHLIST, Supports).	
+pref_auth([H|T], Supports) ->
+    case lists:member(H, Supports) of
+	true  -> {ok, H};
+	false -> pref_auth(T,Supports)
+    end;
+pref_auth([], _Supports) ->
+    {error, none}.
+
+%% checks Features list if AUTH is supported and returns 
+%% a list of methods
+does_auth(["AUTH"++Supp|_]) -> string:tokens(Supp, " ");
+does_auth([_Other|Tail])     -> does_auth(Tail);
+does_auth([])                -> no.
+
+socket_send({gen_tcp, S}, Msg) ->
+    gen_tcp:send(S, Msg);
+socket_send({ssl, S}, Msg) ->
+    ssl:send(S, Msg).
+
+%% listens for smtp response & parses to get code
+get_response(Socket) ->
+    get_response(Socket, ?RESPONSE_TIMEOUT).
+
+get_response({gen_tcp, Socket}, Timeout) ->
+    receive
+	{tcp, Socket, Resp} ->
+	    {lists:sublist(Resp, 3), Resp}; 
+	{tcp_error, Socket, Reason} ->
+	    {conn_error, Reason};
+	{tcp_closed,Socket} ->
+	    conn_closed
+    after Timeout ->
+            {conn_error, timeout}
+    end;
+get_response({ssl, Socket}, Timeout) ->
+    receive
+	{ssl, Socket, Resp} ->
+	    {lists:sublist(Resp, 3), Resp}; 
+	{ssl_error, Socket, Reason} ->
+	    {conn_error, Reason};
+	{ssl_closed,Socket} ->
+	    conn_closed
+    after Timeout ->
+            {conn_error, timeout}
+    end.
