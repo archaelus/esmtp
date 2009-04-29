@@ -12,7 +12,10 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
--export([config/1]).
+-export([config/1, start_ssl/0, need_ssl/1]).
+
+-define(SMTP_PORT_TLS, 587).
+-define(SMTP_PORT_SSL, 465).
 
 %%====================================================================
 %% Application callbacks
@@ -28,6 +31,10 @@
 %% top supervisor of the tree.
 %%--------------------------------------------------------------------
 start(_Type, StartArgs) ->
+    case need_ssl() of
+        true -> start_ssl();
+        false -> ok
+    end,
     esmtp_sup:start_link().
 
 %%--------------------------------------------------------------------
@@ -46,6 +53,11 @@ stop(_State) ->
 %% @spec config(Item::atom()) -> term()
 %% @doc Retrieve the configuration value for key Item from the tbld
 %% OTP application environment.
+config(login) ->
+    case application:get_env(esmtp, login) of
+        {ok, Term} -> Term;
+        undefined -> no_login
+    end;
 config(Item) ->
     case application:get_env(esmtp, Item) of
         {ok, Term} -> Term;
@@ -54,3 +66,22 @@ config(Item) ->
                                    [Item]),
             exit(esmtp_misconfigured)
     end.
+
+need_ssl() ->
+    {_Host, Port} =  config(smarthost),
+    need_ssl(Port).
+
+need_ssl(?SMTP_PORT_TLS) -> true;
+need_ssl(?SMTP_PORT_SSL) -> true;
+need_ssl(_) -> false.
+
+ensure_started(App) ->
+    case application:start(App) of
+        ok -> ok;
+        {error, {already_started, App}} -> ok;
+        Err -> Err
+    end.
+
+start_ssl() ->
+    ok = ensure_started(crypto),
+    ok = ensure_started(ssl).
