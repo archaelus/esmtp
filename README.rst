@@ -17,6 +17,10 @@ smarthost
 default_from
   This is the default From address to use on outgoing mail if a From
   address is not supplied.
+login
+  The SMTP AUTH credentials to use. Either 'no_login' when not using
+  SMTP AUTH (default) or {Username::string(),Password::string()}.
+
 
 Example
 -------
@@ -25,5 +29,11 @@ system.config::
 
   [{esmtp, [{smarthost, {"localhost", 25}}
            ,{default_from, "Erlang/OTP <erlang@localhost>"}]}].
+
+gmail.config::
+
+  [{esmtp, [{smarthost, {"smtp.gmail.com", 465}}
+           ,{login, {"youraddress@gmail.com","yourpassword"}}
+           ,{default_from, "Erlang pretending to be <youraddress@gmail.com>"}]}].
 
 
