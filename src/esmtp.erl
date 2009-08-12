@@ -10,11 +10,15 @@
 -include("../include/esmtp_mime.hrl").
 
 %% API
--export([send/1
+-export([start/0
+         ,send/1
          ,send/2
          ,send/3
          ,send/5
          ,mailq/0]).
+
+start() ->
+    application:start(esmtp).
 
 %%====================================================================
 %% API
