@@ -30,7 +30,7 @@
 %% OTP design principles as a supervision tree, this means starting the
 %% top supervisor of the tree.
 %%--------------------------------------------------------------------
-start(_Type, StartArgs) ->
+start(_Type, _StartArgs) ->
     case need_ssl() of
         true -> start_ssl();
         false -> ok
