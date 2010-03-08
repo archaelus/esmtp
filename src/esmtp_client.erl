@@ -29,22 +29,28 @@ start_link(MX, Ehlo, From, To, Msg) ->
 %%====================================================================
 
 init({Host,Port},Ehlo,From,To,Msg) ->
-    init({Host,Port,false,no_login},Ehlo,From,To,Msg);
+    init({Host,Port,tcp,no_login},Ehlo,From,To,Msg);
 init(MX,Ehlo,From,To,Msg) ->
     proc_lib:init_ack({ok, self()}),
     sendemail(MX,Ehlo,From,To,Msg).
 
 sendemail({Host,Port,SSL,Login},Ehlo,From,To,Msg) ->
-    {ok, Fsm} = esmtp_fsm:start_link(Host, Port, SSL),
-    {ok, _} = esmtp_fsm:ehlo(Fsm, Ehlo),
-    case Login of
-        {User,Pass} -> {ok, _} = esmtp_fsm:login(Fsm,User,Pass);
-        no_login -> ok
-    end,
-    {ok, _} = esmtp_fsm:mail_from(Fsm, From),
-    {ok, _} = esmtp_fsm:rcpt_to(Fsm,To),
-    {ok, _} = esmtp_fsm:message(Fsm,Msg),
-    ok = esmtp_fsm:close(Fsm).
+    {ok, S0} = esmtp_sock:connect(Host, Port, SSL),
+    {ok, S1, {220, _Banner}} = esmtp_sock:read_response(S0),
+    {ok, S2, {250, _Msg}} = esmtp_sock:command(S1, {ehlo, Ehlo}),
+    AuthS = case Login of
+                {User,Pass} ->
+                    {ok, S3, {334, _}} = esmtp_sock:command(S2, {auth, "PLAIN"}),
+                    {ok, S4, {235, _}} = esmtp_sock:command(S3, {auth_plain, User, Pass}),
+                    S4;
+                no_login ->
+                    S2
+            end,
+    {ok, S10, {250, _}} = esmtp_sock:command(AuthS, {mail_from, From}),
+    {ok, S11, {250, _}} = esmtp_sock:command(S10, {rcpt_to, To}),
+    {ok, S12, {250, _}} = esmtp_sock:send_data(S11, Msg),
+    ok = esmtp_sock:close(S12).
 
 is_mx({_Host,Port}) when is_integer(Port) -> true;
-is_mx({_Host,Port,SSL,_Login}) when is_integer(Port), is_boolean(SSL) -> true.
+is_mx({_Host,Port,new_ssl,_Login}) when is_integer(Port) -> true;
+is_mx({_Host,Port,gen_tcp,no_login}) when is_integer(Port) -> true.
