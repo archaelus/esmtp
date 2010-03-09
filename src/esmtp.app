@@ -5,7 +5,8 @@
   ,{modules, [esmtp
               ,esmtp_app
               ,esmtp_client
-              ,esmtp_fsm
+              ,esmtp_sock
+              ,esmtp_codec
               ,esmtp_mime
               ,esmtp_sup]}
   ,{mod, {esmtp_app, []}}
