@@ -3,7 +3,7 @@ ERL          ?= erl
 EBIN_DIRS    := $(wildcard lib/*/ebin)
 APP          := esmtp
 
-all: erl ebin/$(APP).app docs
+all: erl docs
 
 erl: ebin lib
 	@$(ERL) -pa $(EBIN_DIRS) -noinput +B \
@@ -15,9 +15,6 @@ docs: $(wildcard src/*.erl)
 clean: 
 	@echo "removing:"
 	@rm -fv ebin/*.beam ebin/*.app
-
-ebin/$(APP).app: src/$(APP).app
-	@cp src/$(APP).app $@
 
 ebin:
 	@mkdir ebin
