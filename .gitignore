@@ -1,5 +1,4 @@
 doc/*.html
-ebin/*
 .DS_Store
 .gitignore
 *~
