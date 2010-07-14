@@ -14,7 +14,7 @@ docs: $(wildcard src/*.erl)
 
 clean: 
 	@echo "removing:"
-	@rm -fv ebin/*.beam ebin/*.app
+	@rm -fv ebin/*.beam
 
 ebin:
 	@mkdir ebin
