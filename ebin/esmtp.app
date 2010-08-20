@@ -8,6 +8,7 @@
               ,esmtp_sock
               ,esmtp_codec
               ,esmtp_mime
+              ,esmtp_sock
               ,esmtp_sup]}
   ,{mod, {esmtp_app, []}}
   ,{env, [{smarthost, {"localhost", 25}}
