@@ -2,7 +2,7 @@
 %% @copyright Geoff Cant
 %% @author Geoff Cant <nem@erlang.geek.nz>
 %% @version {@vsn}, {@date} {@time}
-%% @doc Simple one-shot client using esmtp_fsm.
+%% @doc Simple one-shot client using esmtp_sock.
 %% @end
 %%%-------------------------------------------------------------------
 -module(esmtp_client).

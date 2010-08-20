@@ -31,21 +31,31 @@ decode(<<"RCPT TO: ", Address/binary>>) ->
 decode(<<"RCPT TO:", Address/binary>>) -> 
     {rcpt_to, Address};
 decode(<<"DATA">>) -> 
-    {data};
+    data;
+decode(<<"STARTTLS">>) -> 
+    starttls;
 decode(<<".">>) -> 
-    {data_end};
+    data_end;
 decode(<<"QUIT">>) -> 
-    {quit};
-decode(<<C1, C2, C3, _Sep, Message/binary>>)
+    quit;
+decode(<<C1, C2, C3, Sep, Message/binary>>)
   when $0 =< C1, C1 =< $9,
        $0 =< C2, C2 =< $9,
-       $0 =< C3, C3 =< $9 ->
-    {list_to_integer([C1, C2, C3]), Message};
+       $0 =< C3, C3 =< $9,
+       (Sep =:= $- orelse Sep =:= $\s) ->
+    {list_to_integer([C1, C2, C3]),
+     case Sep of
+         $- -> more;
+         $\s -> last
+     end,
+     Message};
 decode(<<C1, C2, C3>>)
   when $0 =< C1, C1 =< $9,
        $0 =< C2, C2 =< $9,
        $0 =< C3, C3 =< $9 ->
-    {list_to_integer([C1, C2, C3]), <<>>};
+    {list_to_integer([C1, C2, C3]), last, <<>>};
+decode(<<$., Line/binary>>) ->
+    {raw, Line};
 decode(Line) ->
     {raw, Line}.
 
@@ -57,20 +67,26 @@ encode({mail_from, Host}) ->
     [<<"MAIL FROM: ">>, Host];
 encode({rcpt_to, Address}) ->
     [<<"RCPT TO: ">>, Address];
-encode({data}) ->
+encode(starttls) ->
+    [<<"STARTTLS">>];
+encode(data) ->
     [<<"DATA">>];
-encode({data_end}) ->
+encode(data_end) ->
     [<<".">>];
-encode({quit}) ->
+encode(quit) ->
     [<<"QUIT">>];
-encode({Code, <<>>}) when is_integer(Code) ->
+encode({Code, more, Message}) when is_integer(Code) ->
+    [integer_to_list(Code), $-, Message];
+encode({Code, last, <<>>}) when is_integer(Code) ->
     integer_to_list(Code);
-encode({Code, Message}) when is_integer(Code) ->
-    [integer_to_list(Code), " ", Message];
+encode({Code, last, Message}) when is_integer(Code) ->
+    [integer_to_list(Code), $\s, Message];
 encode({auth_plain, Username, Password}) ->
     [encode_auth(Username, Password)];
+encode({raw, <<$., Line/binary>>}) ->
+    ["..", Line];
 encode({raw, Line}) ->
-    [Line].
+    Line.
 
 encode_auth(Username, Password) ->
     AuthString = iolist_to_binary([0, Username, 0, Password]),
@@ -97,6 +113,7 @@ roundtrip_test_() ->
                    ,<<"221 Bye">>
                    ,<<"334">>
                    ,<<"334 Go ahead">>
+                   ,<<"STARTTLS">>
                    ],
     [ ?_assertMatch(S when S =:= String,
                            iolist_to_binary(encode(decode(String))))

@@ -46,7 +46,7 @@ init([]) ->
     Clients = {"ESMTP Client",
                {esmtp_client,start_link,[]},
                temporary,2000,worker,
-               [esmtp_fsm]},
+               [esmtp_client, esmtp_code, esmtp_sock]},
     {ok,{{simple_one_for_one,0,1}, [Clients]}}.
 
 %%====================================================================

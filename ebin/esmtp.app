@@ -1,6 +1,6 @@
 {application, esmtp,
  [{description, "Erlang SMTP client"}
-  ,{vsn, "0.1"}
+  ,{vsn, "0.2"}
   ,{applications, [kernel, stdlib]}
   ,{modules, [esmtp
               ,esmtp_app
