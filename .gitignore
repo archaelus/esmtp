@@ -6,3 +6,4 @@ doc/edoc-info
 doc/erlang.png
 doc/stylesheet.css
 src/TAGS
+ebin/*.beam
