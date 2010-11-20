@@ -78,14 +78,10 @@ send(S = #esmtp_sock{sock=Sock,
     end.
 
 send_data(S = #esmtp_sock{}, Data) ->
-    {ok, S1, {250, _}} = command(S, data),
+    {ok, S1, {354, last, _}} = command(S, data),
     {ok, S2} = send(S1, [Data, $\n]),
     command(S2, data_end).
 
 close(#esmtp_sock{sock=Sock,
                   type=Type}) ->
     Type:close(Sock).
-
-%%====================================================================
-%% Internal functions
-%%====================================================================
