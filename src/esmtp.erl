@@ -38,7 +38,7 @@ send(undefined, To, Msg) ->
 send(From, To, Message) ->
     {Host, Port} = esmtp_app:config(smarthost),
     MX = case esmtp_app:need_ssl(Port) of
-             true -> {Host, Port, new_ssl, esmtp_app:config(login)};
+             true -> {Host, Port, ssl, esmtp_app:config(login)};
              false -> {Host, Port, gen_tcp, no_login}
          end,
     Ehlo = esmtp_app:config(default_ehlo),

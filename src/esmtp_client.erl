@@ -52,5 +52,5 @@ sendemail({Host,Port,SSL,Login},Ehlo,From,To,Msg) ->
     ok = esmtp_sock:close(S12).
 
 is_mx({_Host,Port}) when is_integer(Port) -> true;
-is_mx({_Host,Port,new_ssl,_Login}) when is_integer(Port) -> true;
+is_mx({_Host,Port,ssl,_Login}) when is_integer(Port) -> true;
 is_mx({_Host,Port,gen_tcp,no_login}) when is_integer(Port) -> true.
