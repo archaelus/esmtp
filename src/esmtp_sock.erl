@@ -56,12 +56,16 @@ read_response_all(S) ->
 
 command(S = #esmtp_sock{},
         Command) when is_tuple(Command) ->
-    {ok, S1} = send(S, [esmtp_codec:encode(Command), $\n]),
-    read_response(S1);
+    {ok, S1} = send(S, [esmtp_codec:encode(Command), $\r, $\n]),
+    read_response_all(S1);
+command(S = #esmtp_sock{},
+        Command) when is_atom(Command) ->
+    {ok, S1} = send(S, [esmtp_codec:encode(Command), $\r, $\n]),
+    read_response_all(S1);
 command(S = #esmtp_sock{},
         Command) ->
     {ok, S1} = send(S, Command),
-    read_response(S1).
+    read_response_all(S1).
 
 send(S = #esmtp_sock{sock=Sock,
                      type=Type},
