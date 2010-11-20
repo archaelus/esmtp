@@ -67,6 +67,8 @@ encode({mail_from, Host}) ->
     [<<"MAIL FROM: ">>, Host];
 encode({rcpt_to, Address}) ->
     [<<"RCPT TO: ">>, Address];
+encode({auth, Msg}) ->
+    [<<"AUTH ">>, Msg];
 encode(starttls) ->
     [<<"STARTTLS">>];
 encode(data) ->
