@@ -10,6 +10,7 @@
 %% API
 -export([connect/3
          ,read_response/1
+         ,read_response_all/1
          ,command/2
          ,send/2
          ,send_data/2
@@ -43,6 +44,15 @@ read_response(S = #esmtp_sock{sock=Sock,
         {error, Reason} ->
             {error, S, Reason}
     end.
+
+read_response_all(S) ->
+    case read_response(S) of
+        {ok, S1, {_, more, _}} ->
+            read_response_all(S1);
+        _ ->
+            ok
+    end.
+
 
 command(S = #esmtp_sock{},
         Command) when is_tuple(Command) ->
