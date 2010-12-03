@@ -80,7 +80,7 @@ send(S = #esmtp_sock{sock=Sock,
 
 send_data(S = #esmtp_sock{}, Data) ->
     {ok, S1, {354, last, _}} = command(S, data),
-    {ok, S2} = send(S1, [Data, $\n]),
+    {ok, S2} = send(S1, [Data, "\r\n"]),
     command(S2, data_end).
 
 close(#esmtp_sock{sock=Sock,
