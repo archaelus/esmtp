@@ -49,8 +49,9 @@ read_response_all(S) ->
     case read_response(S) of
         {ok, S1, {_, more, _}} ->
             read_response_all(S1);
-        _ ->
-            ok
+        {ok, _, {_, last, _}} = FinalResponse ->
+            FinalResponse;
+        {error, _} = E -> E
     end.
 
 
