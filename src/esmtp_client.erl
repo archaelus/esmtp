@@ -48,8 +48,8 @@ sendemail({Host,Port,SSL,Login},Ehlo,From,To,Msg) ->
             end,
     {ok, S10, {250, _, _}} = esmtp_sock:command(AuthS, {mail_from, From}),
     {ok, S11, {250, _, _}} = esmtp_sock:command(S10, {rcpt_to, To}),
-    {ok, S12, {250, _, _}} = esmtp_sock:send_data(S11, erlang:iolist_to_binary(Msg)),
-    ok = esmtp_sock:close(S12).
+    {ok, S12, {250, _, _}} = esmtp_sock:send_data(S11, Msg),
+    esmtp_sock:close(S12).
 
 is_mx({_Host,Port}) when is_integer(Port) -> true;
 is_mx({_Host,Port,ssl,_Login}) when is_integer(Port) -> true;
