@@ -29,7 +29,7 @@
 
 connect(Host, Port, Type) ->
     case Type:connect(Host, Port,
-                         ?TCP_OPTS) of
+                      ?TCP_OPTS) of
         {ok, Sock} ->
             {ok, #esmtp_sock{sock=Sock,
                              type=Type}};
