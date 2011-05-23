@@ -11,6 +11,7 @@
 -record(mime_part, {type,
                     encoding = {"7bit", "text/plain","iso-8859-1"},
                     name,
-                    data}).
+                    data,
+                    content_id = undefined}).
 
 -endif.

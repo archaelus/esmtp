@@ -110,13 +110,28 @@ part_headers(#mime_part{type=undefined, encoding={Enc, MimeType, Charset},
                         name=undefined}) ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, {charset, Charset}]}];
-part_headers(#mime_part{type=Type, encoding={Enc, MimeType, Charset},
-                        name=Name}) when Type==inline; Type == attachment ->
+
+part_headers(#mime_part{type=Type,
+                        encoding={Enc, MimeType, Charset},
+                        name=Name,
+                        content_id=undefined}) when Type==inline; Type == attachment ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Name]},
-     {"Content-Disposition", [atom_to_list(Type), 
-                              {"filename", 
-                              Name}]}].
+     {"Content-Disposition", [atom_to_list(Type),
+                              {"filename",
+                              Name}]}];
+
+part_headers(#mime_part{type=Type,
+                        encoding={Enc, MimeType, Charset},
+                        name=Name,
+                        content_id=Id}) when Type==inline; Type == attachment ->
+    [{"Content-Transfer-Encoding", Enc},
+     {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Name]},
+     {"Content-Disposition", [atom_to_list(Type),
+                              {"filename",
+                              Name}]},
+     {"Content-ID", "<" ++ Id ++">"}
+    ].
 
 headers(#mime_msg{headers=H, boundary=Boundary}) ->
     H ++ [{"MIME-Version", "1.0"},
