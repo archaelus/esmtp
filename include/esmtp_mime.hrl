@@ -12,6 +12,6 @@
                     encoding = {"7bit", "text/plain","iso-8859-1"},
                     name,
                     data,
-                    content_id = undefined}).
+                    content_id}).
 
 -endif.
