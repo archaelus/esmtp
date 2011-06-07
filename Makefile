@@ -1,26 +1,68 @@
-VSN          := 0.1
-ERL          ?= erl
-EBIN_DIRS    := $(wildcard lib/*/ebin)
-APP          := esmtp
+ERL			?= erl
+ERL			= erlc
+EBIN_DIRS		:= $(wildcard deps/*/ebin)
 
-all: erl docs
+PRIV                    = priv
 
-erl: ebin lib
-	@$(ERL) -pa $(EBIN_DIRS) -noinput +B \
-	  -eval 'case make:all() of up_to_date -> halt(0); error -> halt(1) end.'
+.PHONY: rel deps
 
-docs: $(wildcard src/*.erl)
-	@erl -noshell -run edoc_run application '$(APP)' '"."' "[{def, [{vsn, \"$(VSN)\"}]}]"
+all: deps compile
 
-clean: 
-	@echo "removing:"
-	@rm -fv ebin/*.beam
+compile: deps
+	@./rebar compile
 
-ebin:
-	@mkdir ebin
+deps:
+	@./rebar get-deps
+	@./rebar check-deps
 
-lib:
-	@mkdir lib
+clean:
+	@./rebar clean
 
-dialyzer: erl
-	@dialyzer -c ebin
+realclean: clean
+	@./rebar delete-deps
+
+test:
+	@./rebar skip_deps=true ct
+
+eunit:
+	@./rebar skip_deps=true eunit
+
+rel: deps
+	@./rebar compile generate
+
+doc:
+	@./rebar skip_deps=true doc
+
+console:
+	@erl -pa deps/*/ebin deps/*/include ebin include -boot start_sasl  -sname esmtp
+
+analyze: checkplt
+	@./rebar skip_deps=true dialyze
+
+buildplt:
+	@./rebar skip_deps=true build-plt
+
+checkplt: buildplt
+	@./rebar skip_deps=true check-plt
+
+xref:
+	@./rebar skip_deps=true xref
+                
+                
+$(PRIV)/docroot/index.html:
+	cd java_src && 	mvn install
+	cp -r java_src/target/umts/css $(PRIV)/docroot
+	cp -r java_src/target/umts/img $(PRIV)/docroot
+	cp -r java_src/target/umts/net.caixagaliciamoviles.gumts.GUMTS $(PRIV)/docroot
+	cp -r java_src/target/umts/index.html $(PRIV)/docroot
+	cp -r java_src/target/umts/res $(PRIV)/docroot
+	cp -r  java_src/target/umts/favicon.ico  $(PRIV)/docroot	
+java_clean:
+	cd java_src &&  mvn clean
+	rm -rf $(PRIV)/docroot/css
+	rm -rf $(PRIV)/docroot/img
+	rm -rf $(PRIV)/docroot/net.caixagaliciamoviles.gumts.GUMTS
+	rm -rf $(PRIV)/docroot/res
+	rm -rf $(PRIV)/docroot/index.html
+	rm -rf $(PRIV)/docroot/favicon.ico
+
