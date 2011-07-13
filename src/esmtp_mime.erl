@@ -133,14 +133,14 @@ part_headers(#mime_part{type=Type,
      {"Content-ID", "<" ++ Id ++">"}
     ].
 
-headers(#mime_msg{headers=H, boundary=Boundary}) ->
+headers(#mime_msg{headers=H, boundary=Boundary, content_type = ContentType}) ->
     H ++ [{"MIME-Version", "1.0"},
-          {"Content-Type", ["multipart/mixed", 
+          {"Content-Type", [ContentType,
                             "boundary=\"" ++ Boundary ++ "\""]}].
 
 invent_mime_boundary() ->
     string:copies("=", 10) ++ list_rand(boundary_chars(), 30).
-        
+
 list_rand(List, N) ->
     lists:map(fun (_) -> list_rand(List) end,
               lists:seq(1,N)).

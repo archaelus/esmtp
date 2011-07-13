@@ -7,7 +7,11 @@
 -ifndef(esmtp_mime).
 -define(esmtp_mime, true).
 
--record(mime_msg, {headers = [], boundary, parts = []}).
+-record(mime_msg, {headers = [],
+                   boundary,
+                   parts = [],
+                   content_type = "multipart/mixed"}
+       ).
 -record(mime_part, {type,
                     encoding = {"7bit", "text/plain","iso-8859-1"},
                     name,
