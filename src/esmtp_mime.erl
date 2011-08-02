@@ -110,22 +110,37 @@ part_headers(#mime_part{type=undefined, encoding={Enc, MimeType, Charset},
                         name=undefined}) ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, {charset, Charset}]}];
-part_headers(#mime_part{type=Type, encoding={Enc, MimeType, Charset},
-                        name=Name}) when Type==inline; Type == attachment ->
+
+part_headers(#mime_part{type=Type,
+                        encoding={Enc, MimeType, Charset},
+                        name=Name,
+                        content_id=undefined}) when Type==inline; Type == attachment ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Name]},
-     {"Content-Disposition", [atom_to_list(Type), 
-                              {"filename", 
-                              Name}]}].
+     {"Content-Disposition", [atom_to_list(Type),
+                              {"filename",
+                              Name}]}];
 
-headers(#mime_msg{headers=H, boundary=Boundary}) ->
+part_headers(#mime_part{type=Type,
+                        encoding={Enc, MimeType, Charset},
+                        name=Name,
+                        content_id=Id}) when Type==inline; Type == attachment ->
+    [{"Content-Transfer-Encoding", Enc},
+     {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Name]},
+     {"Content-Disposition", [atom_to_list(Type),
+                              {"filename",
+                              Name}]},
+     {"Content-ID", "<" ++ Id ++">"}
+    ].
+
+headers(#mime_msg{headers=H, boundary=Boundary, content_type = ContentType}) ->
     H ++ [{"MIME-Version", "1.0"},
-          {"Content-Type", ["multipart/mixed", 
+          {"Content-Type", [ContentType,
                             "boundary=\"" ++ Boundary ++ "\""]}].
 
 invent_mime_boundary() ->
     string:copies("=", 10) ++ list_rand(boundary_chars(), 30).
-        
+
 list_rand(List, N) ->
     lists:map(fun (_) -> list_rand(List) end,
               lists:seq(1,N)).
