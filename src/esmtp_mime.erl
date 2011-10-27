@@ -114,18 +114,18 @@ part_headers(#mime_part{type=Type, encoding={Enc, MimeType, Charset},
                         name=Name}) when Type==inline; Type == attachment ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Name]},
-     {"Content-Disposition", [atom_to_list(Type), 
-                              {"filename", 
+     {"Content-Disposition", [atom_to_list(Type),
+                              {"filename",
                               Name}]}].
 
 headers(#mime_msg{headers=H, boundary=Boundary}) ->
     H ++ [{"MIME-Version", "1.0"},
-          {"Content-Type", ["multipart/mixed", 
+          {"Content-Type", ["multipart/mixed",
                             "boundary=\"" ++ Boundary ++ "\""]}].
 
 invent_mime_boundary() ->
     string:copies("=", 10) ++ list_rand(boundary_chars(), 30).
-        
+
 list_rand(List, N) ->
     lists:map(fun (_) -> list_rand(List) end,
               lists:seq(1,N)).

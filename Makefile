@@ -12,7 +12,7 @@ erl: ebin lib
 docs: $(wildcard src/*.erl)
 	@erl -noshell -run edoc_run application '$(APP)' '"."' "[{def, [{vsn, \"$(VSN)\"}]}]"
 
-clean: 
+clean:
 	@echo "removing:"
 	@rm -fv ebin/*.beam
 
