@@ -26,17 +26,17 @@ decode(<<"MAIL FROM: ", Address/binary>>) ->
     {mail_from, Address};
 decode(<<"MAIL FROM:", Address/binary>>) ->
     {mail_from, Address};
-decode(<<"RCPT TO: ", Address/binary>>) -> 
+decode(<<"RCPT TO: ", Address/binary>>) ->
     {rcpt_to, Address};
-decode(<<"RCPT TO:", Address/binary>>) -> 
+decode(<<"RCPT TO:", Address/binary>>) ->
     {rcpt_to, Address};
-decode(<<"DATA">>) -> 
+decode(<<"DATA">>) ->
     data;
-decode(<<"STARTTLS">>) -> 
+decode(<<"STARTTLS">>) ->
     starttls;
-decode(<<".">>) -> 
+decode(<<".">>) ->
     data_end;
-decode(<<"QUIT">>) -> 
+decode(<<"QUIT">>) ->
     quit;
 decode(<<C1, C2, C3, Sep, Message/binary>>)
   when $0 =< C1, C1 =< $9,
