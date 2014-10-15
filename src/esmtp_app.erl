@@ -84,5 +84,6 @@ ensure_started(App) ->
 
 start_ssl() ->
     ok = ensure_started(crypto),
+    ok = ensure_started(asn1),
     ok = ensure_started(public_key),
     ok = ensure_started(ssl).
