@@ -75,14 +75,5 @@ need_ssl(?SMTP_PORT_TLS) -> true;
 need_ssl(?SMTP_PORT_SSL) -> true;
 need_ssl(_) -> false.
 
-ensure_started(App) ->
-    case application:start(App) of
-        ok -> ok;
-        {error, {already_started, App}} -> ok;
-        Err -> Err
-    end.
-
 start_ssl() ->
-    ok = ensure_started(crypto),
-    ok = ensure_started(public_key),
-    ok = ensure_started(ssl).
+    application:ensure_all_started(ssl).
